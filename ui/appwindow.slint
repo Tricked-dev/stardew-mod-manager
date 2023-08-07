@@ -59,7 +59,7 @@ component ModItem inherits Rectangle {
         Rectangle {
             x: 0px;
             border-radius: 2px;
-            width: 6px;
+            width: 9px;
             y: (parent.height - self.height) / 2;
             background: area.pressed ? Skin.palette.menuBar : Colors.rgba(0,0,0,0);
             animate height{
@@ -77,9 +77,12 @@ component ModItem inherits Rectangle {
             ]
         }
 
-        HorizontalBox {
-            padding: 2px;
+        Rectangle {
+            border-width: 4px;
+            border-color: Skin.palette.mainContent;
             HorizontalBox {
+                padding: 15px;
+
                 Text {
                     text: mod.text;
                 }
@@ -111,6 +114,8 @@ export component AppWindow inherits Window {
     in property <string> profile: "Preset 1";
 
     callback select-change <=> combo.selected;
+
+    background: Skin.palette.mainContent;
 
     VerticalBox {
         padding: 0px;
