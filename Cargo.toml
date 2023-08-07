@@ -1,0 +1,31 @@
+[package]
+name = "stardew-mod-manager"
+version = "0.1.0"
+authors = ["Tricked <tricked@tricked.pro>"]
+edition = "2021"
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+color-eyre = "0.6.2"
+dirs = "5.0.1"
+env_logger = "0.10.0"
+json5 = "0.4.1"
+log = "0.4.19"
+once_cell = { version = "1.18.0", features = ["parking_lot"] }
+ron = "0.8.0"
+serde = { version = "1.0.183", features = ["derive"] }
+slint = { version = "1.0", features = ["renderer-winit-software", "compat-1-0",
+    "backend-winit", "software-renderer-systemfonts", "backend-winit-wayland",
+    "backend-winit-x11",  "renderer-winit-skia", "renderer-winit-skia-opengl"], default-features = false }
+tokio = { version = "1.29.1", features = ["full"] }
+walkdir = "2.3.3"
+
+[build-dependencies]
+slint-build = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

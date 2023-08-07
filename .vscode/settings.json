@@ -1,0 +1,10 @@
+{
+  "slint.preview.style": "fluent-dark",
+  "custom-format.enable": true,
+  "custom-format.formatters": [
+    {
+      "language": "slint",
+      "command": "/home/tricked/.cargo/bin/slint-fmt /dev/stdin"
+    }
+  ]
+}
