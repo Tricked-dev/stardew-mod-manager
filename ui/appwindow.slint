@@ -44,6 +44,13 @@ global Skin {
     // (also, bold)
 }
 
+export global Logic  {
+    in-out property <int> the-value;
+
+    pure callback mod-move(string) -> bool;
+}
+
+
 component ModItem inherits Rectangle {
     in-out property <Mod> mod: { text: "PLACE_HOLDER"};
     in property <int> type: 0;
@@ -51,7 +58,10 @@ component ModItem inherits Rectangle {
     callback clicked();
 
     area := TouchArea {
-        clicked => { clicked()}
+        clicked => {
+            Logic.mod-move(mod.id);
+
+        }
      }
 
     Rectangle {
@@ -94,11 +104,14 @@ component ModItem inherits Rectangle {
 component ModList inherits GroupBox {
     in-out property <[Mod]> mods: [];
 
+    callback mod-clicked(Mod);
+
     ListView {
         vertical-stretch: 0;
         for mod in mods: ModItem {
             type: 1;
             mod: mod;
+            clicked => { mod-clicked(mod) }
         }
     }
 }
@@ -116,6 +129,9 @@ export component AppWindow inherits Window {
     callback select-change <=> combo.selected;
 
     background: Skin.palette.mainContent;
+
+    property <Mod> active-mod;
+    property <bool> active-mod-active;
 
     VerticalBox {
         padding: 0px;
@@ -147,16 +163,33 @@ export component AppWindow inherits Window {
             }
         }
 
+
+        if (active-mod.id != ""): HorizontalBox {
+            height: self.preferred-height;
+                Text {
+                    text: @tr("No Mod Selected");
+                }
+
+        }
+
         HorizontalBox {
             vertical-stretch: 1;
 
             ModList {
                 title: "Disabled Mods";
                 mods: disabledMods;
+                mod-clicked(mod) => {
+                    active-mod-active = false;
+                    active-mod = mod;
+                }
             }
             ModList {
                 title: "Enabled Mods";
                 mods: enabledMods;
+                mod-clicked(mod) => {
+                    active-mod-active = true;
+                    active-mod = mod;
+                }
             }
         }
 
