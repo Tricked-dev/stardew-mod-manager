@@ -3,123 +3,10 @@ import "../assets/fa-regular-400.ttf";
 import "../assets/Font Awesome 6 Brands-Regular-400.otf";
 import "../assets/Font Awesome 6 Free-Regular-400.otf";
 
-struct Mod {
-    text: string,
-    description: string,
-    author: string,
-    active: bool,
-    version: string,
-    id: string,
-    path: string,
-    nexus: string
-}
+import { ModListTab } from "./tabs/modlist.slint";
+import { Mod, Skin, Logic } from "./util.slint";
 
-struct Palette  {
-    menuBar : brush,
-    mainContent : brush,
-    box : brush,
-    lightDisplay : brush,
-    pieChart : brush,
-    roundButton : brush,
-    weekdayBox : brush,
-    text : brush,
-    shadow : brush,
-}
-
-
-global Skin {
-    in property <bool> day: !StyleMetrics.dark-color-scheme;
-    out property <Palette> palette: {
-       menuBar : #2937A7,
-       mainContent : #040404,
-       box : #101010,
-       lightDisplay : #000000,
-       pieChart : #000000,
-       roundButton : #0a0a0a,
-       weekdayBox : #0c0c0c,
-       text : #fff,
-       shadow : #fff1, // ### added alpha
-    };
-    // From Skin::initHints in Skin.cpp
-    out property <length> DefaultFont: 12px;
-    out property <length> TinyFont: 9px;
-    out property <length> SmallFont: 10px;
-    out property <length> MediumFont: 13px;
-    out property <length> LargeFont: 20px;
-    out property <length> HugeFont: 27px;
-    // (also, bold)
-    out property <length> TitleFont: 10px;
-    // (also, bold)
-}
-
-export global Logic  {
-    in-out property <int> the-value;
-
-    pure callback mod-move(string);
-    pure callback update-ui();
-    pure callback active-mod(string);
-    pure callback switch-mod(string);
-}
-
-
-component ModItem inherits Rectangle {
-    in-out property <Mod> mod: { text: "PLACE_HOLDER"};
-    in property <int> type: 0;
-
-    area := TouchArea {
-        clicked => {
-            Logic.active-mod(mod.id);
-        }
-     }
-
-    Rectangle {
-        background: area.has-hover ? Skin.palette.box.brighter(40%) : Skin.palette.box;
-        Rectangle {
-            x: 0px;
-            border-radius: 2px;
-            width: 9px;
-            y: (parent.height - self.height) / 2;
-            background: area.pressed ? Skin.palette.menuBar : Colors.rgba(0,0,0,0);
-            animate height{
-                    duration: 250ms;
-            }
-
-            states [
-                not-hovered when !area.pressed: {
-                    height:0px;
-
-                }
-                hovered when area.pressed: {
-                    height:25px;
-                }
-            ]
-        }
-
-        Rectangle {
-            border-width: 4px;
-            border-color: Skin.palette.mainContent;
-            HorizontalBox {
-                padding: 15px;
-
-                Text {
-                    text: mod.text;
-                }
-            }
-        }
-    }
-}
-
-component ModList inherits GroupBox {
-    in-out property <[Mod]> mods: [];
-
-    ListView {
-        vertical-stretch: 0;
-        for mod in mods: ModItem {
-            type: 1;
-            mod: mod;
-        }
-    }
-}
+export { Logic }
 
 export component AppWindow inherits Window {
     preferred-width: 700px;
@@ -135,13 +22,33 @@ export component AppWindow inherits Window {
     in property <string> profile: "Preset 1";
 
     callback select-change <=> combo.selected;
-    callback switch-mod <=> movebtn.clicked;
-    callback delete-mod <=> deletebtn.clicked;
+
+    callback switch-mod <=> modlist.move-mod;
+    callback delete-mod <=> modlist.remove-mod;
 
     background: Skin.palette.mainContent;
 
     in-out property <Mod> active-mod;
     in-out property <bool> active-mod-active;
+
+    focus-stealer := TextInput {
+        height: 0;
+        width: 0;
+        visible: false;
+    }
+
+    function unfocus() {
+        focus-stealer.visible=true;
+        focus-stealer.focus();
+        focus-stealer.visible=false;
+    }
+
+    // unfocus elements when clicking, the while border is VERY annoying
+    TouchArea {
+        clicked => {
+            unfocus()
+        }
+    }
 
     VerticalBox {
         padding: 0px;
@@ -159,7 +66,20 @@ export component AppWindow inherits Window {
             GridLayout {
                 spacing: 5px;
                 Row {
-                    Text { }
+                    page := ComboBox {
+                        current-value: "";
+                        model: ["Mods", "Manage profiles", "About"];
+                        accessible-label: "Change page";
+                        accessible-role: combobox;
+                        forward-focus: focus-stealer;
+                        height: combo.preferred-height;
+                        vertical-stretch: 0;
+                        selected(v) => {
+                            page.current-value = "";
+                            // remove the white border after selecting something
+                            unfocus()
+                        }
+                    }
 
                     Text {
                         text: @tr(" Preset");
@@ -177,68 +97,11 @@ export component AppWindow inherits Window {
         }
 
 
-         VerticalBox {
-            visible: active-mod-active;
-            height: active-mod-active ?  self.preferred-height : 0px;
-
-                Text {
-                    font-size: Skin.LargeFont;
-                    text: @tr("Selected Mod: ") + active-mod.text;
-                }
-
-
-            HorizontalBox {
-                Text {
-                    text: " Mod ID: " + active-mod.id;
-                }
-            }
-            HorizontalBox {
-                Text {
-                    text: " Mod Author: " + active-mod.author;
-                    width: max(self.preferred-width, 400px);
-                }
-                Text {
-                    text: " Mod Version: " + active-mod.version;
-                }
-            }
-
-            HorizontalBox {
-                deletebtn := Button {
-                    text: " Remove";
-                }
-                movebtn := Button {
-                    text: " Move";
-
-                }
-                // if (active-mod.nexus != ""):
-                Button {
-                    text: " Visit Nexus";
-                }
-            }
-
-            animate height {
-                duration: 250ms;
-             }
-        }
-
-        HorizontalBox {
-            vertical-stretch: 1;
-
-            ModList {
-
-                title: " Disabled Mods";
-                mods: disabledMods;
-            }
-            ModList {
-                title: " Enabled Mods";
-                mods: enabledMods;
-            }
-        }
-
-        HorizontalBox {
-            Button {
-                text: " Check for updates";
-            }
+        modlist := ModListTab {
+            active-mod: active-mod;
+            active-mod-active: active-mod-active;
+            enabled-mods: enabledMods;
+            disabled-mods: disabledMods;
         }
     }
 }

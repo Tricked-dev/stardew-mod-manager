@@ -1,0 +1,60 @@
+import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint} from "std-widgets.slint";
+
+export struct Mod {
+    text: string,
+    description: string,
+    author: string,
+    active: bool,
+    version: string,
+    id: string,
+    path: string,
+    nexus: string
+}
+
+export struct Palette  {
+    menuBar : brush,
+    mainContent : brush,
+    box : brush,
+    lightDisplay : brush,
+    pieChart : brush,
+    roundButton : brush,
+    weekdayBox : brush,
+    text : brush,
+    shadow : brush,
+}
+
+
+export global Skin {
+    in property <bool> day: !StyleMetrics.dark-color-scheme;
+    out property <Palette> palette: {
+       menuBar : #2937A7,
+       mainContent : #040404,
+       box : #101010,
+       lightDisplay : #000000,
+       pieChart : #000000,
+       roundButton : #0a0a0a,
+       weekdayBox : #0c0c0c,
+       text : #fff,
+       shadow : #fff1, // ### added alpha
+    };
+    // From Skin::initHints in Skin.cpp
+    out property <length> DefaultFont: 12px;
+    out property <length> TinyFont: 9px;
+    out property <length> SmallFont: 10px;
+    out property <length> MediumFont: 13px;
+    out property <length> LargeFont: 20px;
+    out property <length> HugeFont: 27px;
+    // (also, bold)
+    out property <length> TitleFont: 10px;
+    // (also, bold)
+}
+
+export global Logic  {
+    in-out property <int> the-value;
+
+    pure callback mod-move(string);
+    pure callback update-ui();
+    pure callback active-mod(string);
+    pure callback switch-mod(string);
+}
+
