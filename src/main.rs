@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashMap, HashSet},
     ffi::OsStr,
     fs::{create_dir_all, read_dir, read_to_string, rename, write, DirEntry},
     future::Future,
@@ -9,15 +10,17 @@ use std::{
 
 use color_eyre::eyre::Result;
 use futures::TryFutureExt;
-use log::{debug, info};
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use slint::{ModelRc, SharedString, VecModel, Weak};
+use smapiapi::{resolve_mods, SmapiMod};
 use tokio::{sync::OnceCell, task::JoinHandle};
 use walkdir::WalkDir;
 
 slint::include_modules!();
 
 mod find_game;
+mod smapiapi;
 
 const SVMM: &str = "SVMM";
 
@@ -128,7 +131,27 @@ struct ModManifest {
     description: Option<String>,
     #[serde(rename = "UniqueID")]
     unique_id: String,
+    #[serde(rename = "Dependencies")]
+    #[serde(default)]
+    dependencies: Vec<ModDependency>,
 }
+
+#[allow(unused)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ModDependency {
+    #[serde(rename = "UniqueID")]
+    #[serde(alias = "UniqueId")]
+    unique_id: String,
+    #[serde(rename = "Version")]
+    #[serde(alias = "MinimumVersion")]
+    version: Option<String>,
+    #[serde(rename = "IsRequired")]
+    #[serde(default)]
+    required: bool,
+    #[serde(flatten)]
+    other: HashMap<String, serde_json::Value>,
+}
+
 #[derive(Clone, Debug)]
 struct InstalledMod {
     path: PathBuf,
@@ -157,7 +180,30 @@ async fn load_mods_from_dir(path: &PathBuf, active: bool) -> Result<Vec<Installe
     }
     result.sort_by(|a, b| a.modified.cmp(&b.modified));
 
+    for id in find_missing_dependencies(&result) {
+        info!("missing dependency: {id}");
+    }
+
     Ok(result)
+}
+
+async fn load_missing_dependencies() -> Result<Vec<SmapiMod>> {
+    let (active_mods, _) = load_mods().await?;
+    let missing = find_missing_dependencies(&active_mods);
+    debug!("Missing dependencies: {missing:?}");
+    let mods = resolve_mods(
+        missing
+            .iter()
+            .map(|x| SmapiMod {
+                id: x.to_string(),
+                ..Default::default()
+            })
+            .collect(),
+    )
+    .await?;
+    debug!("Resolved mods: {mods:?}");
+
+    Ok(mods)
 }
 
 impl From<&InstalledMod> for Mod {
@@ -175,9 +221,16 @@ impl From<&InstalledMod> for Mod {
     }
 }
 
-fn mods_to_modelrc(mods: &[InstalledMod]) -> ModelRc<Mod> {
-    let mods = mods.iter().map(Mod::from).collect::<Vec<_>>();
+fn generic_to_modelrc<I, M>(mods: &[I]) -> ModelRc<M>
+where
+    M: for<'a> From<&'a I> + 'static + Clone,
+{
+    let mods = mods.iter().map(M::from).collect::<Vec<_>>();
     ModelRc::new(VecModel::from(mods))
+}
+
+fn mods_to_modelrc(mods: &[InstalledMod]) -> ModelRc<Mod> {
+    generic_to_modelrc::<InstalledMod, Mod>(mods)
 }
 
 async fn find_mod<A: AsRef<str>>(id: A) -> Result<InstalledMod> {
@@ -193,6 +246,46 @@ async fn find_mod<A: AsRef<str>>(id: A) -> Result<InstalledMod> {
         (_, Some(inactive_mod)) => Ok(inactive_mod.clone()),
         _ => Err(io::Error::new(io::ErrorKind::NotFound, "Mod not found").into()),
     }
+}
+
+fn find_missing_dependencies(mods: &[InstalledMod]) -> Vec<String> {
+    let installed_ids: HashSet<_> = mods
+        .iter()
+        .map(|imod| imod.manifest.unique_id.trim().to_owned())
+        .collect();
+
+    let required_ids: HashSet<_> = mods
+        .iter()
+        .flat_map(|imod| imod.manifest.dependencies.iter().map(|d| d.unique_id.trim().to_owned()))
+        .collect();
+
+    required_ids.difference(&installed_ids).cloned().collect()
+}
+
+impl From<&SmapiMod> for SmapiApiMod {
+    fn from(smapi_mod: &SmapiMod) -> Self {
+        SmapiApiMod {
+            id: smapi_mod.id.clone().into(),
+            name: smapi_mod.metadata.name.clone().into(),
+            url: smapi_mod.metadata.main.url.clone().into(),
+            ..Default::default()
+        }
+    }
+}
+
+async fn set_missing_mods(handle_copy: Weak<AppWindow>) -> Result<()> {
+    let mods = load_missing_dependencies().await?;
+
+    slint::invoke_from_event_loop(move || {
+        let handle_copy = handle_copy.unwrap();
+
+        let model = generic_to_modelrc::<SmapiMod, SmapiApiMod>(&mods);
+
+        handle_copy.set_missing_dependencies(model);
+    })
+    .unwrap();
+
+    Ok(())
 }
 
 async fn remove_mod<A: AsRef<str>>(id: A) -> Result<()> {
@@ -314,7 +407,9 @@ where
     tokio::spawn(async {
         let result = future.await;
         if let Err(err) = result {
-            log::error!("{}", err);
+            error!("{}", err);
+        } else {
+            debug!("Spawned future completed");
         }
     })
 }
@@ -356,6 +451,7 @@ async fn main() -> Result<()> {
     }
     env_logger::init();
 
+    // inits the game data - do it here so errors stay pretty :D
     let _ = get_game_data().await?;
 
     let ui = AppWindow::new()?;
@@ -394,6 +490,12 @@ async fn main() -> Result<()> {
         let handle_copy = handle_weak.clone();
         let modid = handle_copy.unwrap().get_active_mod().id.clone();
         spawn_logging(switch_mod(modid.to_string()).and_then(|_| reload(handle_copy)));
+    });
+
+    let handle_weak = ui.as_weak();
+    ui.on_get_missing_dependencies(move || {
+        let handle_copy = handle_weak.clone();
+        spawn_logging(set_missing_mods(handle_copy));
     });
 
     let handle_weak = ui.as_weak();

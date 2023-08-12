@@ -4,9 +4,9 @@ import "../assets/Font Awesome 6 Brands-Regular-400.otf";
 import "../assets/Font Awesome 6 Free-Regular-400.otf";
 
 import { ModListTab } from "./tabs/modlist.slint";
-import { Mod, Skin, Logic } from "./util.slint";
+import { Mod, Skin, Logic, SmapiApiMod} from "./util.slint";
 
-export { Logic }
+export { Logic, SmapiApiMod }
 
 export component AppWindow inherits Window {
     preferred-width: 700px;
@@ -15,12 +15,15 @@ export component AppWindow inherits Window {
 
     default-font-family: "Roboto, 'Font Awesome 6 Free'";
 
-    in-out property <[Mod]> enabledMods: [{ text:"Abilities - Experience Bars"}];
-    in-out property <[Mod]> disabledMods: [{ text:"A Bonafide Special Blue Chicken"}, { text:"Access Chest Anywhere"}];
+    in property <[Mod]> enabledMods: [{ text:"Abilities - Experience Bars"}];
+    in property <[Mod]> disabledMods: [{ text:"A Bonafide Special Blue Chicken"}, { text:"Access Chest Anywhere"}];
 
     in property <[string]> profiles: ["Preset 1", "Preset 2", "Preset 3"];
     in property <string> profile: "Preset 1";
 
+    in property <[SmapiApiMod]> missing-dependencies: [];
+
+    callback get-missing-dependencies();
     callback select-change <=> combo.selected;
 
     callback switch-mod <=> modlist.move-mod;
@@ -68,16 +71,23 @@ export component AppWindow inherits Window {
                 Row {
                     page := ComboBox {
                         current-value: "";
-                        model: ["Mods", "Manage profiles", "About"];
+                        model: ["Mods", "Check Dependencies", "Manage profiles", "About"];
                         accessible-label: "Change page";
                         accessible-role: combobox;
                         forward-focus: focus-stealer;
+                        current-index: 0;
                         height: combo.preferred-height;
                         vertical-stretch: 0;
                         selected(v) => {
                             page.current-value = "";
                             // remove the white border after selecting something
-                            unfocus()
+                            unfocus();
+                            if (page.current-index == 1) {
+                                get-missing-dependencies()
+                            }
+                            if (page.current-index != 0) {
+                                active-mod-active = false
+                            }
                         }
                     }
 
@@ -95,13 +105,44 @@ export component AppWindow inherits Window {
                 }
             }
         }
+        if(page.current-index == 1): missing-dependencies := VerticalBox {
+            visible: page.current-index == 1;
+            ListView {
 
+            for mod in root.missing-dependencies: HorizontalBox {
+                Text {
+                    text: mod.id;
+                }
+            }
+        }
+        }
 
         modlist := ModListTab {
             active-mod: active-mod;
             active-mod-active: active-mod-active;
             enabled-mods: enabledMods;
             disabled-mods: disabledMods;
+            vertical-stretch: 1;
+            states [
+                inactive when page.current-index != 0: {
+                    visible: false;
+                }
+                active when page.current-index == 0: {
+                    visible: true;
+                }
+             ]
+        }
+
+        if(page.current-index == 3): about := VerticalBox {
+            VerticalBox {
+                Text {
+                   text: "Stardew Valley Mod Manager is created by tricked and opensource";
+                }
+
+                AboutSlint {
+                    width: max(self.preferred-width, 200px);
+                }
+            }
         }
     }
 }

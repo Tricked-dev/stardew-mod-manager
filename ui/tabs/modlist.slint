@@ -74,84 +74,84 @@ export component ModListTab inherits VerticalLayout {
     callback remove-mod <=> deletebtn.clicked;
     callback move-mod <=> movebtn.clicked;
 
+    // height: self.visible ? self.preferred-height : 0px;
+
     VerticalBox {
-            HorizontalBox {
-                Text {
-                    font-size: Skin.LargeFont;
-                    text: "Selected Mod: " + active-mod.text;
-                }
+        HorizontalBox {
+            Text {
+                font-size: Skin.LargeFont;
+                text: "Selected Mod: " + active-mod.text;
             }
+        }
 
-            HorizontalBox {
-                Text {
-                    text: " Mod ID: " + active-mod.id;
-                }
+        HorizontalBox {
+            Text {
+                text: " Mod ID: " + active-mod.id;
             }
+        }
 
-            HorizontalBox {
-                Text {
-                    text: " Mod Author: " + active-mod.author;
-                    width: max(self.preferred-width, 400px);
-                }
-                Text {
-                    text: " Mod Version: " + active-mod.version;
-                }
+        HorizontalBox {
+            Text {
+                text: " Mod Author: " + active-mod.author;
+                width: max(self.preferred-width, 400px);
             }
-
-            HorizontalBox {
-                Text {
-                    text: active-mod.description;
-                    wrap: word-wrap;
-                }
+            Text {
+                text: " Mod Version: " + active-mod.version;
             }
+        }
 
-            HorizontalBox {
-                deletebtn := Button {
-                    text: " Remove";
-                }
-                movebtn := Button {
-                    text: " Move";
+        HorizontalBox {
+            Text {
+                text: active-mod.description;
+                wrap: word-wrap;
+            }
+        }
 
-                }
+        HorizontalBox {
+            deletebtn := Button {
+                text: " Remove";
+            }
+            movebtn := Button {
+                text: " Move";
+            }
                 // if (active-mod.nexus != ""):
-                Button {
-                    text: " Visit Nexus";
-                }
-            }
-
-            animate height {
-                duration: 250ms;
-            }
-            states [
-                open when active-mod-active: {
-                    height: self.preferred-height;
-                }
-                closed when !active-mod-active: {
-                    height: 0px;
-                    visible: false;
-                }
-             ]
-        }
-
-        HorizontalBox {
-            vertical-stretch: 1;
-
-            ModList {
-
-                title: " Disabled Mods";
-                mods: disabled-mods;
-            }
-            ModList {
-                title: " Enabled Mods";
-                mods: enabled-mods;
-            }
-        }
-
-        HorizontalBox {
             Button {
-                text: " Check for updates";
+                text: " Visit Nexus";
             }
         }
+
+        animate height {
+            duration: 250ms;
+        }
+        states [
+            open when active-mod-active: {
+                height: self.preferred-height;
+            }
+            closed when !active-mod-active: {
+                height: 0px;
+                visible: false;
+            }
+        ]
+    }
+    if (root.visible):
+    HorizontalBox {
+        vertical-stretch: 1;
+        ModList {
+            title: " Disabled Mods";
+            mods: disabled-mods;
+        }
+        ModList {
+            title: " Enabled Mods";
+            mods: enabled-mods;
+        }
+    }
+
+    if (root.visible):
+    HorizontalBox {
+        Button {
+            text: " Check for updates";
+        }
+    }
 }
 
 
