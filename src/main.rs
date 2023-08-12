@@ -1,23 +1,17 @@
 use std::{
     ffi::OsStr,
-    fs::{create_dir_all, read, read_dir, read_to_string, rename, write, DirEntry},
+    fs::{create_dir_all, read_dir, read_to_string, rename, write, DirEntry},
     future::Future,
     io,
-    iter::Once,
     path::PathBuf,
-    sync::Arc,
-    time::SystemTime,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
-use color_eyre::eyre::{EyreContext, Result};
-use futures::FutureExt;
+use color_eyre::eyre::Result;
 use futures::TryFutureExt;
-use log::{debug, error, info};
-use once_cell::sync::Lazy;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use slint::{
-    private_unstable_api::re_exports::euclid::default, Model, ModelRc, SharedString, VecModel, Weak,
-};
+use slint::{ModelRc, SharedString, VecModel, Weak};
 use tokio::{sync::OnceCell, task::JoinHandle};
 use walkdir::WalkDir;
 
@@ -26,6 +20,8 @@ slint::include_modules!();
 mod find_game;
 
 const SVMM: &str = "SVMM";
+
+#[allow(unused)]
 #[derive(Clone, Debug)]
 struct GameData {
     installation_path: PathBuf,
@@ -56,6 +52,10 @@ async fn get_game_data<'a>() -> Result<&'a GameData> {
     if !profile_dir.try_exists()? {
         info!("Creating svmm directories");
         create_dir_all(&profile_dir)?;
+    }
+
+    if !&svmm_dir.join("deleted").try_exists()? {
+        create_dir_all(&svmm_dir.join("deleted"))?;
     }
 
     if read_dir(&profile_dir)?.count() == 0 {
@@ -144,10 +144,7 @@ async fn load_mods_from_dir(path: &PathBuf, active: bool) -> Result<Vec<Installe
 
         if entry.file_name() == OsStr::new("manifest.json") {
             let manifest: ModManifest = json5::from_str(read_to_string(entry.path())?.as_str())?;
-            debug!(
-                "found active mod: {} id: {}",
-                &manifest.name, &manifest.unique_id
-            );
+            debug!("found active mod: {} id: {}", &manifest.name, &manifest.unique_id);
             let imod = InstalledMod {
                 // impossible
                 path: entry.path().parent().unwrap().to_path_buf(),
@@ -188,18 +185,32 @@ async fn find_mod<A: AsRef<str>>(id: A) -> Result<InstalledMod> {
 
     let (active_mods, inactive_mods) = load_mods().await?;
 
-    let active_mod = active_mods
-        .iter()
-        .find(|imod| imod.manifest.unique_id == id);
-    let inactive_mod = inactive_mods
-        .iter()
-        .find(|imod| imod.manifest.unique_id == id);
+    let active_mod = active_mods.iter().find(|imod| imod.manifest.unique_id == id);
+    let inactive_mod = inactive_mods.iter().find(|imod| imod.manifest.unique_id == id);
 
     match (active_mod, inactive_mod) {
         (Some(active_mod), _) => Ok(active_mod.clone()),
         (_, Some(inactive_mod)) => Ok(inactive_mod.clone()),
         _ => Err(io::Error::new(io::ErrorKind::NotFound, "Mod not found").into()),
     }
+}
+
+async fn remove_mod<A: AsRef<str>>(id: A) -> Result<()> {
+    let imod = find_mod(id).await?;
+
+    let game_data = get_game_data().await?;
+
+    let deleted_folder = game_data.svmm_path.join("deleted");
+
+    let location = deleted_folder.join(format!(
+        "{}-{}",
+        imod.path.file_name().unwrap().to_string_lossy(),
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
+    ));
+
+    rename(&imod.path, location)?;
+
+    Ok(())
 }
 
 async fn switch_mod<A: AsRef<str>>(id: A) -> Result<()> {
@@ -215,12 +226,8 @@ async fn switch_mod<A: AsRef<str>>(id: A) -> Result<()> {
 
     let id = id.as_ref();
 
-    let active_mod = active_mods
-        .iter()
-        .find(|imod| imod.manifest.unique_id == id);
-    let inactive_mod = inactive_mods
-        .iter()
-        .find(|imod| imod.manifest.unique_id == id);
+    let active_mod = active_mods.iter().find(|imod| imod.manifest.unique_id == id);
+    let inactive_mod = inactive_mods.iter().find(|imod| imod.manifest.unique_id == id);
 
     match (active_mod, inactive_mod) {
         (Some(active_mod), None) => {
@@ -330,6 +337,17 @@ async fn set_mod_active(modid: String, handle_copy: Weak<AppWindow>) -> Result<(
     Ok(())
 }
 
+async fn clear_active_mod(handle_copy: Weak<AppWindow>) -> Result<()> {
+    slint::invoke_from_event_loop(move || {
+        let ui_weak = handle_copy.unwrap();
+
+        ui_weak.set_active_mod_active(false)
+    })
+    .unwrap();
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -378,6 +396,18 @@ async fn main() -> Result<()> {
         spawn_logging(switch_mod(modid.to_string()).and_then(|_| reload(handle_copy)));
     });
 
+    let handle_weak = ui.as_weak();
+    ui.on_delete_mod(move || {
+        let handle_copy = handle_weak.clone();
+        let handle_copy2 = handle_weak.clone();
+        let modid: String = handle_copy.unwrap().get_active_mod().id.clone().to_string();
+        spawn_logging(
+            remove_mod(modid.clone())
+                .and_then(|_| clear_active_mod(handle_copy))
+                .and_then(|_| reload(handle_copy2)),
+        );
+    });
+
     ui.run()?;
     Ok(())
 }
@@ -407,10 +437,7 @@ async fn switch_to_profile(profile: String) -> Result<()> {
         if file.path().is_file() {
             continue;
         }
-        rename(
-            file.path(),
-            &game_data.mods_path.join(file.path().file_name().unwrap()),
-        )?;
+        rename(file.path(), &game_data.mods_path.join(file.path().file_name().unwrap()))?;
     }
 
     write(game_data.mods_path.join(".profile"), &profile)?;

@@ -1,7 +1,9 @@
 use log::debug;
-use std::fs::File;
-use std::io::{self, BufRead};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    io::{self, BufRead},
+    path::{Path, PathBuf},
+};
 use walkdir::WalkDir;
 
 pub fn get_game_dir(name: &str) -> io::Result<PathBuf> {
@@ -9,10 +11,7 @@ pub fn get_game_dir(name: &str) -> io::Result<PathBuf> {
 }
 
 fn get_steam_game_dir(name: &str) -> io::Result<PathBuf> {
-    let steam_dir = get_steam_dir().ok_or(io::Error::new(
-        io::ErrorKind::NotFound,
-        "Steam dir not found",
-    ))?;
+    let steam_dir = get_steam_dir().ok_or(io::Error::new(io::ErrorKind::NotFound, "Steam dir not found"))?;
 
     let mut library_folders = get_library_folders(&steam_dir.join("steamapps/libraryfolders.vdf"))?;
     library_folders.push(steam_dir); // include the main Steam directory
@@ -55,12 +54,7 @@ fn find_game_dir(steam_dir: &Path, game_name: &str) -> Option<PathBuf> {
     for entry in WalkDir::new(steam_dir).max_depth(1) {
         let entry = entry.unwrap();
         debug!("found game: {}", entry.file_name().to_string_lossy());
-        if entry.file_type().is_dir()
-            && entry
-                .file_name()
-                .to_string_lossy()
-                .eq_ignore_ascii_case(game_name)
-        {
+        if entry.file_type().is_dir() && entry.file_name().to_string_lossy().eq_ignore_ascii_case(game_name) {
             return Some(entry.into_path());
         }
     }

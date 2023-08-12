@@ -136,6 +136,7 @@ export component AppWindow inherits Window {
 
     callback select-change <=> combo.selected;
     callback switch-mod <=> movebtn.clicked;
+    callback delete-mod <=> deletebtn.clicked;
 
     background: Skin.palette.mainContent;
 
@@ -202,7 +203,7 @@ export component AppWindow inherits Window {
             }
 
             HorizontalBox {
-                Button {
+                deletebtn := Button {
                     text: " Remove";
                 }
                 movebtn := Button {
