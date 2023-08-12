@@ -11,6 +11,7 @@ build = "build.rs"
 color-eyre = "0.6.2"
 dirs = "5.0.1"
 env_logger = "0.10.0"
+futures = { version = "0.3.28", features = ["futures-executor"] }
 json5 = "0.4.1"
 log = "0.4.19"
 once_cell = { version = "1.18.0", features = ["parking_lot"] }
@@ -26,6 +27,7 @@ walkdir = "2.3.3"
 slint-build = "1.0"
 
 [profile.release]
-opt-level = 3
+opt-level = "s"
 lto = "thin"
 codegen-units = 1
+# strip = true
