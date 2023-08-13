@@ -274,7 +274,9 @@ impl From<&SmapiMod> for SmapiApiMod {
 }
 
 async fn set_missing_mods(handle_copy: Weak<AppWindow>) -> Result<()> {
-    let mods = load_missing_dependencies().await?;
+    let mut mods = load_missing_dependencies().await?;
+
+    mods.sort_by(|a, b| a.id.cmp(&b.id));
 
     slint::invoke_from_event_loop(move || {
         let handle_copy = handle_copy.unwrap();

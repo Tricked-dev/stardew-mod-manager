@@ -1,4 +1,4 @@
-use std::{env::consts::OS, os};
+use std::env::consts::OS;
 
 use color_eyre::Result;
 use once_cell::sync::Lazy;

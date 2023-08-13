@@ -1,7 +1,6 @@
-import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint} from "std-widgets.slint";
-import "../assets/fa-regular-400.ttf";
-import "../assets/Font Awesome 6 Brands-Regular-400.otf";
-import "../assets/Font Awesome 6 Free-Regular-400.otf";
+import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, LineEdit, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint, TextEdit} from "std-widgets.slint";
+import "../assets/RobotoNerdFont-Regular.ttf";
+import "../assets/LatoNerdFont-Regular.ttf";
 
 import { ModListTab } from "./tabs/modlist.slint";
 import { Mod, Skin, Logic, SmapiApiMod} from "./util.slint";
@@ -13,7 +12,7 @@ export component AppWindow inherits Window {
     preferred-height: 800px;
     title: "Stardew Valley Mod Manager";
 
-    default-font-family: "Roboto, 'Font Awesome 6 Free'";
+    default-font-family: "Lato Nerd Font";
 
     in property <[Mod]> enabledMods: [{ text:"Abilities - Experience Bars"}];
     in property <[Mod]> disabledMods: [{ text:"A Bonafide Special Blue Chicken"}, { text:"Access Chest Anywhere"}];
@@ -47,7 +46,7 @@ export component AppWindow inherits Window {
     }
 
     // unfocus elements when clicking, the while border is VERY annoying
-    TouchArea {
+    global-touch := TouchArea {
         clicked => {
             unfocus()
         }
@@ -105,17 +104,7 @@ export component AppWindow inherits Window {
                 }
             }
         }
-        if(page.current-index == 1): missing-dependencies := VerticalBox {
-            visible: page.current-index == 1;
-            ListView {
 
-            for mod in root.missing-dependencies: HorizontalBox {
-                Text {
-                    text: mod.id;
-                }
-            }
-        }
-        }
 
         modlist := ModListTab {
             active-mod: active-mod;
@@ -131,6 +120,44 @@ export component AppWindow inherits Window {
                     visible: true;
                 }
              ]
+        }
+
+        if(page.current-index == 1): missing-dependencies := VerticalBox {
+            visible: page.current-index == 1;
+            ListView {
+            for mod in root.missing-dependencies: Rectangle {
+                area := TouchArea {}
+                background: area.has-hover ? Skin.palette.box.brighter(40%) : Skin.palette.box;
+
+                animate background {
+                    duration: 300ms;
+                }
+
+                VerticalBox {
+                    if (mod.name != ""): VerticalBox {
+                        TextInput  {
+                            read-only: true;
+                            text: mod.name;
+                            font-size: Skin.MediumFont;
+                        }
+                        TextInput {
+                            read-only: true;
+                            text: mod.id;
+                            font-size: Skin.SmallFont;
+                        }
+                    }
+                    if (mod.name == ""): VerticalBox {
+                        TextInput {
+                            read-only: true;
+                            text: mod.id;
+                            font-size: Skin.MediumFont;
+                        }
+                    }
+
+                }
+
+            }
+        }
         }
 
         if(page.current-index == 3): about := VerticalBox {
