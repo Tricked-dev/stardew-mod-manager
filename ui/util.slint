@@ -14,7 +14,9 @@ export struct Mod {
 export struct SmapiApiMod {
     name: string,
     id: string,
-    url: string
+    url: string,
+    required_for: [string],
+    required: bool
 }
 
 export struct Palette  {
@@ -64,3 +66,7 @@ export global Logic  {
     pure callback switch-mod(string);
 }
 
+export global Magic {
+    pure callback open(string);
+    pure callback join([string], string) -> string;
+}

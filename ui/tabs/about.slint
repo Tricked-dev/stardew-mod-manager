@@ -1,0 +1,14 @@
+import { Mod, Skin, Logic } from "../util.slint";
+import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint} from "std-widgets.slint";
+
+export component About inherits VerticalBox {
+    VerticalBox {
+        Text {
+            text: "Stardew Valley Mod Manager is created by tricked and opensource";
+        }
+
+        AboutSlint {
+            width: max(self.preferred-width, 150px);
+        }
+    }
+}

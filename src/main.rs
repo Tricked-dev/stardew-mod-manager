@@ -12,7 +12,7 @@ use color_eyre::eyre::Result;
 use futures::TryFutureExt;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use slint::{ModelRc, SharedString, VecModel, Weak};
+use slint::{Model, ModelRc, SharedString, VecModel, Weak};
 use smapiapi::{resolve_mods, SmapiMod};
 use tokio::{sync::OnceCell, task::JoinHandle};
 use walkdir::WalkDir;
@@ -181,21 +181,28 @@ async fn load_mods_from_dir(path: &PathBuf, active: bool) -> Result<Vec<Installe
     result.sort_by(|a, b| a.modified.cmp(&b.modified));
 
     for id in find_missing_dependencies(&result) {
-        info!("missing dependency: {id}");
+        info!("missing dependency: {id}", id = id.modid);
     }
 
     Ok(result)
 }
+#[derive(Clone, Debug)]
+struct ResolvedMissingDependency {
+    mod_data: SmapiMod,
+    for_mods: Vec<String>,
+    required: bool,
+}
 
-async fn load_missing_dependencies() -> Result<Vec<SmapiMod>> {
+async fn load_missing_dependencies() -> Result<Vec<ResolvedMissingDependency>> {
     let (active_mods, _) = load_mods().await?;
     let missing = find_missing_dependencies(&active_mods);
+    println!("{missing:?}");
     debug!("Missing dependencies: {missing:?}");
     let mods = resolve_mods(
         missing
             .iter()
             .map(|x| SmapiMod {
-                id: x.to_string(),
+                id: x.modid.to_string(),
                 ..Default::default()
             })
             .collect(),
@@ -203,7 +210,28 @@ async fn load_missing_dependencies() -> Result<Vec<SmapiMod>> {
     .await?;
     debug!("Resolved mods: {mods:?}");
 
-    Ok(mods)
+    let result: Vec<ResolvedMissingDependency> = mods
+        .into_iter()
+        .map(|resolved_mod| {
+            let dependent_mods: Vec<String> = missing
+                .iter()
+                .filter(|&missing_mod| missing_mod.modid == resolved_mod.id)
+                .flat_map(|missing_mod| missing_mod.for_mods.clone()) // Flatten the Vec<Vec<String>> to Vec<String>
+                .collect();
+
+            let is_required = missing
+                .iter()
+                .any(|missing_mod| missing_mod.modid == resolved_mod.id && missing_mod.required);
+
+            ResolvedMissingDependency {
+                mod_data: resolved_mod,
+                for_mods: dependent_mods,
+                required: is_required,
+            }
+        })
+        .collect();
+
+    Ok(result)
 }
 
 impl From<&InstalledMod> for Mod {
@@ -247,28 +275,55 @@ async fn find_mod<A: AsRef<str>>(id: A) -> Result<InstalledMod> {
         _ => Err(io::Error::new(io::ErrorKind::NotFound, "Mod not found").into()),
     }
 }
+#[derive(Clone, Debug)]
+struct MissingDependency {
+    // imod: Option<SmapiMod>,
+    modid: String,
+    for_mods: Vec<String>,
+    required: bool,
+}
 
-fn find_missing_dependencies(mods: &[InstalledMod]) -> Vec<String> {
+fn find_missing_dependencies(mods: &[InstalledMod]) -> Vec<MissingDependency> {
     let installed_ids: HashSet<_> = mods
         .iter()
         .map(|imod| imod.manifest.unique_id.trim().to_owned())
         .collect();
 
-    let required_ids: HashSet<_> = mods
-        .iter()
-        .flat_map(|imod| imod.manifest.dependencies.iter().map(|d| d.unique_id.trim().to_owned()))
-        .collect();
+    let mut missing_deps: HashMap<String, MissingDependency> = HashMap::new();
 
-    required_ids.difference(&installed_ids).cloned().collect()
+    for imod in mods.iter() {
+        for dependency in &imod.manifest.dependencies {
+            let dep_id = dependency.unique_id.trim().to_owned();
+
+            if !installed_ids.contains(&dep_id) {
+                let entry = missing_deps.entry(dep_id.clone()).or_insert_with(|| MissingDependency {
+                    modid: dep_id.clone(),
+                    for_mods: vec![],
+                    required: dependency.required,
+                });
+
+                // Insert the ID of the mod that's missing the dependency.
+                let id = imod.manifest.unique_id.trim().to_owned();
+                if !entry.for_mods.contains(&id) {
+                    entry.for_mods.push(id);
+                }
+
+                // Ensure required status is updated.
+                entry.required |= dependency.required;
+            }
+        }
+    }
+    missing_deps.values().cloned().collect()
 }
 
-impl From<&SmapiMod> for SmapiApiMod {
-    fn from(smapi_mod: &SmapiMod) -> Self {
+impl From<&ResolvedMissingDependency> for SmapiApiMod {
+    fn from(smapi_mod: &ResolvedMissingDependency) -> Self {
         SmapiApiMod {
-            id: smapi_mod.id.clone().into(),
-            name: smapi_mod.metadata.name.clone().into(),
-            url: smapi_mod.metadata.main.url.clone().into(),
-            ..Default::default()
+            id: smapi_mod.mod_data.id.clone().into(),
+            name: smapi_mod.mod_data.metadata.name.clone().into(),
+            url: smapi_mod.mod_data.metadata.main.url.clone().into(),
+            required_for: generic_to_modelrc(&smapi_mod.for_mods),
+            required: smapi_mod.required,
         }
     }
 }
@@ -276,12 +331,12 @@ impl From<&SmapiMod> for SmapiApiMod {
 async fn set_missing_mods(handle_copy: Weak<AppWindow>) -> Result<()> {
     let mut mods = load_missing_dependencies().await?;
 
-    mods.sort_by(|a, b| a.id.cmp(&b.id));
+    mods.sort_by(|a, b| (b.required as usize, &b.mod_data.id).cmp(&(a.required as usize, &a.mod_data.id)));
 
     slint::invoke_from_event_loop(move || {
         let handle_copy = handle_copy.unwrap();
 
-        let model = generic_to_modelrc::<SmapiMod, SmapiApiMod>(&mods);
+        let model = generic_to_modelrc::<ResolvedMissingDependency, SmapiApiMod>(&mods);
 
         handle_copy.set_missing_dependencies(model);
     })
@@ -478,6 +533,19 @@ async fn main() -> Result<()> {
     ui.global::<Logic>().on_update_ui(move || {
         let handle_copy = handle_weak.clone();
         spawn_logging(reload(handle_copy));
+    });
+
+    ui.global::<Magic>().on_open(move |s| {
+        let result = opener::open(s.to_string());
+        if let Err(err) = result {
+            error!("{}", err);
+        }
+    });
+
+    ui.global::<Magic>().on_join(move |s, joiner| {
+        let list = s.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+
+        list.join(joiner.as_ref()).into()
     });
 
     let handle_weak = ui.as_weak();

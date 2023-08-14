@@ -1,0 +1,76 @@
+import { Mod, Skin, Logic, SmapiApiMod, Magic } from "../util.slint";
+import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint} from "std-widgets.slint";
+
+export component MissingDependencies inherits VerticalLayout {
+    in property <[SmapiApiMod]> missing-dependencies;
+
+            Text {
+                text: " Missing Dependencies";
+                font-size: Skin.MediumFont;
+                padding-left: 30px;
+            }
+            ListView {
+                vertical-stretch: 1;
+                for mod in root.missing-dependencies: Rectangle {
+                    border-width: 4px;
+                    border-color: Skin.palette.mainContent;
+
+                    area := TouchArea {
+                        clicked => {
+                            if (mod.url != "") {
+                                Magic.open(mod.url)
+                            }
+                        }
+                    }
+                    background: area.has-hover ? Skin.palette.box.brighter(40%) : Skin.palette.box;
+
+                    animate background {
+                        duration: 300ms;
+                    }
+
+                    VerticalBox {
+                        padding: 20px;
+                        if (mod.name != ""): VerticalBox {
+                            padding: 0px;
+                            HorizontalBox {
+                                padding: 0px;
+                                TextInput  {
+                                    read-only: true;
+                                    text: mod.name;
+                                    font-size: Skin.MediumFont;
+                                    width: self.preferred-width+3px;
+                                }
+                                if (mod.url != "") :
+                                Text {
+                                    text: "";
+                                }
+                            }
+
+                            TextInput {
+                                read-only: true;
+                                text: mod.id;
+                                font-size: Skin.SmallFont;
+                            }
+                        }
+                        if (mod.name == ""): VerticalBox {
+                            padding: 0px;
+                            TextInput {
+                                read-only: true;
+                                text: mod.id;
+                                font-size: Skin.MediumFont;
+                            }
+                        }
+                        Text {
+                            text: "Required: " + (mod.required ? "" : "");
+                        }
+
+                        TextInput {
+                            read-only: true;
+                            font-size: Skin.SmallFont;
+                            text: Magic.join(mod.required_for, ", ");
+                        }
+                    }
+
+                }
+            }
+        }

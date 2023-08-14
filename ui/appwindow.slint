@@ -1,11 +1,12 @@
 import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, LineEdit, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint, TextEdit} from "std-widgets.slint";
-import "../assets/RobotoNerdFont-Regular.ttf";
 import "../assets/LatoNerdFont-Regular.ttf";
 
 import { ModListTab } from "./tabs/modlist.slint";
-import { Mod, Skin, Logic, SmapiApiMod} from "./util.slint";
+import { Mod, Skin, Logic, SmapiApiMod, Magic} from "./util.slint";
+import { About } from "tabs/about.slint";
+import { MissingDependencies } from "tabs/missing-dependencies.slint";
 
-export { Logic, SmapiApiMod }
+export { Logic, Magic }
 
 export component AppWindow inherits Window {
     preferred-width: 700px;
@@ -70,7 +71,7 @@ export component AppWindow inherits Window {
                 Row {
                     page := ComboBox {
                         current-value: "";
-                        model: ["Mods", "Check Dependencies", "Manage profiles", "About"];
+                        model: ["Mods", "Check Dependencies", "Install Mods From Downloads", "Manage profiles", "About"];
                         accessible-label: "Change page";
                         accessible-role: combobox;
                         forward-focus: focus-stealer;
@@ -105,7 +106,7 @@ export component AppWindow inherits Window {
             }
         }
 
-
+        // tab = 0
         modlist := ModListTab {
             active-mod: active-mod;
             active-mod-active: active-mod-active;
@@ -122,55 +123,9 @@ export component AppWindow inherits Window {
              ]
         }
 
-        if(page.current-index == 1): missing-dependencies := VerticalBox {
-            visible: page.current-index == 1;
-            ListView {
-            for mod in root.missing-dependencies: Rectangle {
-                area := TouchArea {}
-                background: area.has-hover ? Skin.palette.box.brighter(40%) : Skin.palette.box;
+        if(page.current-index == 1): MissingDependencies { missing-dependencies: missing-dependencies; }
 
-                animate background {
-                    duration: 300ms;
-                }
-
-                VerticalBox {
-                    if (mod.name != ""): VerticalBox {
-                        TextInput  {
-                            read-only: true;
-                            text: mod.name;
-                            font-size: Skin.MediumFont;
-                        }
-                        TextInput {
-                            read-only: true;
-                            text: mod.id;
-                            font-size: Skin.SmallFont;
-                        }
-                    }
-                    if (mod.name == ""): VerticalBox {
-                        TextInput {
-                            read-only: true;
-                            text: mod.id;
-                            font-size: Skin.MediumFont;
-                        }
-                    }
-
-                }
-
-            }
-        }
-        }
-
-        if(page.current-index == 3): about := VerticalBox {
-            VerticalBox {
-                Text {
-                   text: "Stardew Valley Mod Manager is created by tricked and opensource";
-                }
-
-                AboutSlint {
-                    width: max(self.preferred-width, 200px);
-                }
-            }
-        }
+        if(page.current-index == 3): About {  }
     }
 }
 
