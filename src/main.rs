@@ -20,6 +20,7 @@ use walkdir::WalkDir;
 slint::include_modules!();
 
 mod find_game;
+mod find_mods_from_downloads;
 mod smapiapi;
 
 const SVMM: &str = "SVMM";
@@ -196,8 +197,7 @@ struct ResolvedMissingDependency {
 async fn load_missing_dependencies() -> Result<Vec<ResolvedMissingDependency>> {
     let (active_mods, _) = load_mods().await?;
     let missing = find_missing_dependencies(&active_mods);
-    println!("{missing:?}");
-    debug!("Missing dependencies: {missing:?}");
+    debug!("Missing dependencies count: {}", missing.len());
     let mods = resolve_mods(
         missing
             .iter()

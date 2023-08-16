@@ -1,0 +1,168 @@
+import { Mod, Skin, Logic, ModsZip } from "../util.slint";
+import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint} from "std-widgets.slint";
+
+export component ModsZipView inherits VerticalBox {
+    padding: 3px;
+
+    in property <ModsZip> mods-zip;
+
+    in-out property <bool> open: false;
+
+    Rectangle {
+        background: area.has-hover ? Skin.palette.box.brighter(40%) : Skin.palette.box;
+        HorizontalBox {
+            // HorizontalBox {
+                // padding: 0px;
+                Text {
+                    y: (parent.height - self.height) / 2;
+                    text: ( open ? "" : "") + " " + mods-zip.name + " (" + mods-zip.mods.length + ")";
+                    font-size: Skin.MediumFont+3px;
+                    TouchArea {
+                        clicked => {
+                            open = !open
+                        }
+                    }
+                }
+
+                area := TouchArea {
+                    clicked => {
+                        open = !open
+                    }
+                }
+            // }
+            Button {
+                width: self.preferred-width+10px;
+                text: mods-zip.mods.length == 1 ? "Install Mod" : "Install Mods";
+            }
+            Button {
+                width: self.preferred-width+10px;
+                text: "Delete zip" ;
+            }
+        }
+
+    }
+
+    VerticalBox {
+        animate height {
+            duration: mods-zip.mods.length * 100ms;
+        }
+        states [
+            open when open : {
+                height: self.preferred-height;
+            }
+            closed when !open: {
+                height: 0px;
+            }
+         ]
+        for mod in open ?  mods-zip.mods : []: Rectangle {
+            background: modarea.has-hover ? Skin.palette.box.brighter(40%) : Skin.palette.box;
+            modarea := TouchArea {
+                clicked => {
+
+                }
+            }
+
+
+            VerticalBox {
+                HorizontalBox {
+                    padding:0px;
+                    Text {
+                        text: mod.text;
+                        font-size: Skin.MediumFont;
+                    }
+                    Text {
+                        width: max(self.preferred-width,40px);
+                        text: " " + mod.version;
+                    }
+                }
+                HorizontalBox {
+                    padding:0px;
+                    Text {
+                        text: mod.description;
+                        font-size: Skin.SmallFont;
+                    }
+                    Text {
+                        width: max(self.preferred-width, 40px);
+                        text: " " + mods-zip.created;
+                        font-size: Skin.SmallFont;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Downloads inherits VerticalBox {
+    padding: 0px;
+
+    in property  <[ModsZip]> mods-zip: [{
+        name: "coolmods.zip",
+        path: "/opt/dev/stardew-mod-manager/assets/coolmods.zip",
+        created: "23-08-16 14:33",
+        mods: [
+            {
+                path: "Coolmods/[PPJNA] Cool Mod",
+                text: "Cool Mod2",
+                description: "Cool Mod",
+                id: "cool.modpj",
+                version: "1.0.0",
+                author: "Tricked",
+            },
+            {
+                path: "Coolmods/[CPJNA] Cool Mod",
+                text: "Cool Mod1",
+                description: "Cool Mod",
+                id: "cool.cpj",
+                version: "1.0.0",
+                author: "Tricked",
+            }
+        ]
+    },{
+        name: "Artisan Valley-1926-3-0-21-1611064240.zip",
+        path: "/opt/dev/stardew-mod-manager/assets/coolmods.zip",
+        created: "23-08-09 11:51",
+        mods: [
+            {
+                path: "Coolmods/[CP] Artisan Valley",
+                text: "[CP] Artisan Valle",
+                description: "Changes the default content tags for various items for use with PFM",
+                id: "cool.modpj",
+                version: "1.0.0",
+                author: "Tricked",
+            },
+            {
+                path: "Coolmods/[JA] Artisan Valley Machine Goods",
+                text: "[JA] Artisan Valley Machine Goods",
+                description: "Adds new items to the game via PFM machines. Requires PFM and JA to work properly.",
+                id: "cool.cpj",
+                version: "1.0.0",
+                author: "Tricked",
+            },
+              {
+                path: "Coolmods/[MFM] Artisan Valley Letters",
+                text: "[MFM] Artisan Valley Letters",
+                description: "Sends crafting recipes to the player.",
+                id: "cool.cpj",
+                version: "1.0.0",
+                author: "Tricked",
+            },
+                {
+                path: "Coolmods/[PFM] Artisan Valley",
+                text: "[PFM] Artisan Valley",
+                description: "Artisan Valley Producer Framework Mod component.",
+                id: "cool.cpj",
+                version: "1.0.0",
+                author: "Tricked",
+            }
+        ]
+    }];
+
+
+    ListView {
+        // vertical-stretch: 1;
+        height: self.preferred-height + 400px;
+        for zip in mods-zip: ModsZipView {
+            mods-zip: zip;
+        }
+    }
+}

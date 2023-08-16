@@ -11,6 +11,13 @@ export struct Mod {
     nexus: string
 }
 
+export struct ModsZip {
+    name: string,
+    path: string,
+    created: string,
+    mods: [Mod]
+}
+
 export struct SmapiApiMod {
     name: string,
     id: string,

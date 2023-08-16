@@ -25,6 +25,7 @@ slint = { version = "1.0", features = ["renderer-winit-software", "compat-1-0",
     "backend-winit-x11",  "renderer-winit-skia", "renderer-winit-skia-opengl"], default-features = false }
 tokio = { version = "1.29.1", features = ["full"] }
 walkdir = "2.3.3"
+zip = "0.6.6"
 
 [build-dependencies]
 slint-build = "1.0"

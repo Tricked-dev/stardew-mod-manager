@@ -2,6 +2,7 @@ import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, LineEdit, S
 import "../assets/LatoNerdFont-Regular.ttf";
 
 import { ModListTab } from "./tabs/modlist.slint";
+import { Downloads } from "./tabs/downloads.slint";
 import { Mod, Skin, Logic, SmapiApiMod, Magic} from "./util.slint";
 import { About } from "tabs/about.slint";
 import { MissingDependencies } from "tabs/missing-dependencies.slint";
@@ -75,7 +76,7 @@ export component AppWindow inherits Window {
                         accessible-label: "Change page";
                         accessible-role: combobox;
                         forward-focus: focus-stealer;
-                        current-index: 0;
+                        current-index: 2;
                         height: combo.preferred-height;
                         vertical-stretch: 0;
                         selected(v) => {
@@ -124,7 +125,7 @@ export component AppWindow inherits Window {
         }
 
         if(page.current-index == 1): MissingDependencies { missing-dependencies: missing-dependencies; }
-
+        if(page.current-index == 2): Downloads {}
         if(page.current-index == 3): About {  }
     }
 }
