@@ -264,13 +264,12 @@ impl From<&InstalledMod> for Mod {
 
         for entry in imod.manifest.update_keys.iter() {
             if let Some((key, value)) = entry.splitn(2, ':').collect::<Vec<_>>().split_first() {
+                let value = value[0].split('@').next().expect("Failed splitting at @");
                 //https://community.playstarbound.com/threads/<name>.<id>/ we could add this later but i dont know if theres extra value
                 match key.to_ascii_lowercase().as_str() {
-                    "nexus" => rmod.nexus = format!("https://nexusmods.com/stardewvalley/mods/{}", value[0]).into(),
-                    "github" => rmod.github = format!("https://github.com/{}", value[0]).into(),
-                    "moddrop" => {
-                        rmod.moddrop = format!("https://www.moddrop.com/stardew-valley/mods/{}", value[0]).into()
-                    }
+                    "nexus" => rmod.nexus = format!("https://nexusmods.com/stardewvalley/mods/{}", value).into(),
+                    "github" => rmod.github = format!("https://github.com/{}", value).into(),
+                    "moddrop" => rmod.moddrop = format!("https://www.moddrop.com/stardew-valley/mods/{}", value).into(),
                     _ => {
                         debug!("Unknown update key {key} {value:?}");
                     }
@@ -456,7 +455,7 @@ async fn reload(handle_copy: Weak<AppWindow>) -> Result<()> {
 
     let profiles = get_profiles_names().await?;
     let profile = get_active_profile().await?;
-
+    let copy2 = handle_copy.clone();
     slint::invoke_from_event_loop(move || {
         let ui_weak = handle_copy.unwrap();
 
@@ -469,13 +468,19 @@ async fn reload(handle_copy: Weak<AppWindow>) -> Result<()> {
         ui_weak.set_enabledMods(mods_to_modelrc(&active_mods));
         ui_weak.set_disabledMods(mods_to_modelrc(&inactive_mods));
 
-        let base_dir = dirs::download_dir().expect("Failed to find the downloads directory");
-        let zips_with_manifests = find_zips_with_manifests(&base_dir);
-
-        ui_weak.set_mods_zip(generic_to_modelrc::<ZipMod, ModsZip>(&zips_with_manifests));
         debug!("Reloading took: {}ms", then.elapsed().as_millis())
     })
     .unwrap();
+
+    // dont block the ui for *too* long
+    tokio::task::spawn_blocking(move || {
+        let base_dir = dirs::download_dir().expect("Failed to find the downloads directory");
+        let zips_with_manifests = find_zips_with_manifests(&base_dir);
+        slint::invoke_from_event_loop(move || {
+            let ui_weak = copy2.unwrap();
+            ui_weak.set_mods_zip(generic_to_modelrc::<ZipMod, ModsZip>(&zips_with_manifests));
+        })
+    });
 
     debug!("Reload exited in: {}ms", then.elapsed().as_millis());
     Ok(())

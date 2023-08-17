@@ -11,36 +11,37 @@ export component ModsZipView inherits VerticalBox {
     Rectangle {
         background: area.has-hover ? Skin.palette.box.brighter(40%) : Skin.palette.box;
         HorizontalBox {
-                VerticalBox {
-                    Text {
+            //TODO: click to open click region still feels wonky look into it
+            VerticalBox {
+                Text {
                         // y: (parent.height - self.height) / 2;
-                        text: ( open ? "" : "") + " " + mods-zip.name + " (" + mods-zip.mods.length + ")";
-                        font-size: Skin.MediumFont;
-                        TouchArea {
-                            clicked => {
-                                open = !open
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: mods-zip.path;
-                        font-size: Skin.SmallFont;
-                        TouchArea {
-                            clicked => {
-                                open = !open
-                            }
+                    text: ( open ? "" : "") + " " + mods-zip.name + " (" + mods-zip.mods.length + ")";
+                    font-size: Skin.MediumFont;
+                    TouchArea {
+                        clicked => {
+                            open = !open
                         }
                     }
                 }
 
-
-                area := TouchArea {
-                    clicked => {
-                        open = !open
+                Text {
+                    text: mods-zip.path;
+                    font-size: Skin.SmallFont;
+                    TouchArea {
+                        clicked => {
+                            open = !open
+                        }
                     }
                 }
-            // }
+            }
+
+
+            area := TouchArea {
+                clicked => {
+                    open = !open
+                }
+            }
+
             Button {
                 width: self.preferred-width+10px;
                 text: mods-zip.mods.length == 1 ? "Install Mod" : "Install Mods";
@@ -60,6 +61,7 @@ export component ModsZipView inherits VerticalBox {
     }
 
     VerticalBox {
+        //TODO animation doesn't work!
         padding-right: 0px;
         animate height {
             duration: mods-zip.mods.length * 100ms;
@@ -84,7 +86,7 @@ export component ModsZipView inherits VerticalBox {
 
             VerticalBox {
                 HorizontalBox {
-                    padding:0px;
+                    padding: 0px;
                     Text {
                         text: mod.text;
                         font-size: Skin.MediumFont;
@@ -95,7 +97,7 @@ export component ModsZipView inherits VerticalBox {
                     }
                 }
                 HorizontalBox {
-                    padding:0px;
+                    padding: 0px;
                     Text {
                         text: mod.description;
                         font-size: Skin.SmallFont;
