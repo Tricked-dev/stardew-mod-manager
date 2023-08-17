@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
@@ -127,18 +129,29 @@ async fn get_profiles_names() -> Result<Vec<String>> {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ModManifest {
     #[serde(rename = "Name")]
+    #[serde(alias = "name")]
     name: String,
     #[serde(rename = "Author")]
+    #[serde(alias = "author")]
     author: String,
     #[serde(rename = "Version")]
+    #[serde(alias = "version")]
     version: String,
     #[serde(rename = "Description")]
+    #[serde(alias = "description")]
     description: Option<String>,
     #[serde(rename = "UniqueID")]
+    #[serde(alias = "UniqueId")]
+    #[serde(alias = "unique_id")]
     unique_id: String,
     #[serde(rename = "Dependencies")]
+    #[serde(alias = "dependencies")]
     #[serde(default)]
     dependencies: Vec<ModDependency>,
+    #[serde(rename = "UpdateKeys")]
+    #[serde(alias = "update_keys")]
+    #[serde(default)]
+    update_keys: Vec<String>,
 }
 
 #[allow(unused)]
@@ -184,10 +197,6 @@ async fn load_mods_from_dir(path: &PathBuf, active: bool) -> Result<Vec<Installe
         }
     }
     result.sort_by(|a, b| a.modified.cmp(&b.modified));
-
-    for id in find_missing_dependencies(&result) {
-        info!("missing dependency: {id}", id = id.modid);
-    }
 
     Ok(result)
 }
@@ -240,7 +249,7 @@ async fn load_missing_dependencies() -> Result<Vec<ResolvedMissingDependency>> {
 
 impl From<&InstalledMod> for Mod {
     fn from(imod: &InstalledMod) -> Self {
-        Mod {
+        let mut rmod = Mod {
             text: imod.manifest.name.clone().into(),
             id: imod.manifest.unique_id.clone().into(),
             author: imod.manifest.author.clone().into(),
@@ -249,7 +258,26 @@ impl From<&InstalledMod> for Mod {
             path: imod.path.to_string_lossy().to_string().into(),
             active: imod.active,
             nexus: "".into(),
+            github: "".into(),
+            moddrop: "".into(),
+        };
+
+        for entry in imod.manifest.update_keys.iter() {
+            if let Some((key, value)) = entry.splitn(2, ':').collect::<Vec<_>>().split_first() {
+                //https://community.playstarbound.com/threads/<name>.<id>/ we could add this later but i dont know if theres extra value
+                match key.to_ascii_lowercase().as_str() {
+                    "nexus" => rmod.nexus = format!("https://nexusmods.com/stardewvalley/mods/{}", value[0]).into(),
+                    "github" => rmod.github = format!("https://github.com/{}", value[0]).into(),
+                    "moddrop" => {
+                        rmod.moddrop = format!("https://www.moddrop.com/stardew-valley/mods/{}", value[0]).into()
+                    }
+                    _ => {
+                        debug!("Unknown update key {key} {value:?}");
+                    }
+                }
+            }
         }
+        rmod
     }
 }
 

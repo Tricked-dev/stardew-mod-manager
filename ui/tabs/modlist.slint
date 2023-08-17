@@ -1,4 +1,4 @@
-import { Mod, Skin, Logic } from "../util.slint";
+import { Mod, Skin, Logic, Magic } from "../util.slint";
 import { Button, VerticalBox, StyleMetrics, HorizontalBox, ListView, StandardListView, GroupBox, ComboBox, GridBox, AboutSlint} from "std-widgets.slint";
 
 component ModItem inherits Rectangle {
@@ -114,10 +114,28 @@ export component ModListTab inherits VerticalLayout {
             movebtn := Button {
                 text: " Move";
             }
-                // if (active-mod.nexus != ""):
+            if (active-mod.github != ""):
+            Button {
+                text: " Visit Github";
+                clicked => {
+                    Magic.open(active-mod.github);
+                }
+            }
+            if (active-mod.nexus != ""):
             Button {
                 text: " Visit Nexus";
+                clicked => {
+                    Magic.open(active-mod.nexus);
+                }
             }
+            if (active-mod.moddrop != ""):
+            Button {
+                text: " Visit ModDrop";
+                clicked => {
+                    Magic.open(active-mod.moddrop);
+                }
+            }
+
         }
 
         animate height {
