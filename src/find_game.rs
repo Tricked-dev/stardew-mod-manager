@@ -6,6 +6,7 @@ use std::{
 };
 use walkdir::WalkDir;
 
+// TODO: non steam steam games support (epic, gog, humble)
 pub fn get_game_dir(name: &str) -> io::Result<PathBuf> {
     get_steam_game_dir(name)
 }

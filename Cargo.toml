@@ -23,6 +23,7 @@ serde_json = "1.0.104"
 slint = { version = "1.0", features = ["renderer-winit-software", "compat-1-0",
     "backend-winit", "software-renderer-systemfonts", "backend-winit-wayland",
     "backend-winit-x11",  "renderer-winit-skia", "renderer-winit-skia-opengl"], default-features = false }
+time = { version = "0.3.25", features = ["macros", "formatting", "parsing", "local-offset"] }
 tokio = { version = "1.29.1", features = ["full"] }
 walkdir = "2.3.3"
 zip = "0.6.6"
@@ -31,7 +32,7 @@ zip = "0.6.6"
 slint-build = "1.0"
 
 [profile.release]
-opt-level = "s"
+opt-level = "z"
 lto = "thin"
 codegen-units = 1
 # strip = true

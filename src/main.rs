@@ -1,14 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
-    fs::{create_dir_all, read_dir, read_to_string, rename, write, DirEntry},
+    fs::{create_dir_all, read_dir, read_to_string, remove_file, rename, write, DirEntry, File},
     future::Future,
     io,
     path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
 use color_eyre::eyre::Result;
+use find_mods_from_downloads::{find_zips_with_manifests, ZipMod};
 use futures::TryFutureExt;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
@@ -16,12 +17,15 @@ use slint::{Model, ModelRc, SharedString, VecModel, Weak};
 use smapiapi::{resolve_mods, SmapiMod};
 use tokio::{sync::OnceCell, task::JoinHandle};
 use walkdir::WalkDir;
+use zip::ZipArchive;
 
 slint::include_modules!();
 
 mod find_game;
 mod find_mods_from_downloads;
 mod smapiapi;
+
+// pub use crate::ModsZip;
 
 const SVMM: &str = "SVMM";
 
@@ -419,6 +423,7 @@ async fn switch_mod<A: AsRef<str>>(id: A) -> Result<()> {
 }
 
 async fn reload(handle_copy: Weak<AppWindow>) -> Result<()> {
+    let then = Instant::now();
     let (active_mods, inactive_mods) = load_mods().await?;
 
     let profiles = get_profiles_names().await?;
@@ -435,9 +440,16 @@ async fn reload(handle_copy: Weak<AppWindow>) -> Result<()> {
 
         ui_weak.set_enabledMods(mods_to_modelrc(&active_mods));
         ui_weak.set_disabledMods(mods_to_modelrc(&inactive_mods));
+
+        let base_dir = dirs::download_dir().expect("Failed to find the downloads directory");
+        let zips_with_manifests = find_zips_with_manifests(&base_dir);
+
+        ui_weak.set_mods_zip(generic_to_modelrc::<ZipMod, ModsZip>(&zips_with_manifests));
+        debug!("Reloading took: {}ms", then.elapsed().as_millis())
     })
     .unwrap();
 
+    debug!("Reload exited in: {}ms", then.elapsed().as_millis());
     Ok(())
 }
 
@@ -513,7 +525,8 @@ async fn main() -> Result<()> {
 
     let ui = AppWindow::new()?;
 
-    reload(ui.as_weak()).await?;
+    // we love a quickly starting application
+    spawn_logging(reload(ui.as_weak()));
 
     let handle_weak = ui.as_weak();
     ui.global::<Logic>().on_mod_move(move |value| {
@@ -580,7 +593,44 @@ async fn main() -> Result<()> {
         );
     });
 
+    let handle_weak = ui.as_weak();
+    ui.global::<Logic>().on_delete_zip(move |s| {
+        let handle_copy = handle_weak.clone();
+        spawn_logging(
+            tokio::fs::remove_file(s.to_string())
+                .map_err(|_| color_eyre::eyre::eyre!("Failed to delete file"))
+                .and_then(|_| reload(handle_copy)),
+        );
+    });
+
+    let handle_weak = ui.as_weak();
+    ui.global::<Logic>().on_install_zip(move |s| {
+        let handle_copy = handle_weak.clone();
+        spawn_logging(unzip(s.to_string()).and_then(|_| reload(handle_copy)));
+    });
+
     ui.run()?;
+    Ok(())
+}
+
+async fn unzip<A: AsRef<str>>(zip_path: A) -> Result<()> {
+    debug!("Installing mods from zip: {}", zip_path.as_ref());
+    let data = get_game_data().await?;
+    let p = PathBuf::from(zip_path.as_ref());
+    let zip = File::open(&p)?;
+    let mut archive = ZipArchive::new(zip)?;
+
+    let mut path = data.mods_path.clone();
+
+    // unzip to zip directory if theres a manifest.json instead of the mod being in a subdirectory!
+    if archive.by_name("manifest.json").is_ok() {
+        let dir = p.file_name().unwrap().to_string_lossy().replace(".zip", "");
+        debug!("Mods not in subdirectory extracting to {dir}");
+        path = path.join(dir);
+    }
+    debug!("Extracting to {path:?}");
+    archive.extract(path)?;
+    debug!("Extracting complete!");
     Ok(())
 }
 

@@ -65,12 +65,13 @@ export global Skin {
 }
 
 export global Logic  {
-    in-out property <int> the-value;
 
     pure callback mod-move(string);
     pure callback update-ui();
     pure callback active-mod(string);
     pure callback switch-mod(string);
+    pure callback install-zip(string);
+    pure callback delete-zip(string);
 }
 
 export global Magic {

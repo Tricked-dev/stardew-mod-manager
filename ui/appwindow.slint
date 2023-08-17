@@ -3,7 +3,7 @@ import "../assets/LatoNerdFont-Regular.ttf";
 
 import { ModListTab } from "./tabs/modlist.slint";
 import { Downloads } from "./tabs/downloads.slint";
-import { Mod, Skin, Logic, SmapiApiMod, Magic} from "./util.slint";
+import { Mod, Skin, Logic, SmapiApiMod, Magic, ModsZip} from "./util.slint";
 import { About } from "tabs/about.slint";
 import { MissingDependencies } from "tabs/missing-dependencies.slint";
 
@@ -23,6 +23,8 @@ export component AppWindow inherits Window {
     in property <string> profile: "Preset 1";
 
     in property <[SmapiApiMod]> missing-dependencies: [];
+
+    in property  <[ModsZip]> mods-zip: [];
 
     callback get-missing-dependencies();
     callback select-change <=> combo.selected;
@@ -125,7 +127,7 @@ export component AppWindow inherits Window {
         }
 
         if(page.current-index == 1): MissingDependencies { missing-dependencies: missing-dependencies; }
-        if(page.current-index == 2): Downloads {}
+        if(page.current-index == 2): Downloads { mods-zip: mods-zip; }
         if(page.current-index == 3): About {  }
     }
 }

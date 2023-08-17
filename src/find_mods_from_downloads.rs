@@ -1,30 +1,35 @@
+//TODO: logging
 use color_eyre::Result;
-use dirs;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::Read,
-    path::{self, Path, PathBuf},
+    path::{Path, PathBuf},
+    time::SystemTime,
 };
+use time::{macros::format_description, OffsetDateTime};
 use walkdir::{DirEntry, WalkDir};
 use zip::read::ZipArchive;
 
-use crate::ModManifest;
+use crate::{mods_to_modelrc, InstalledMod, ModManifest, ModsZip};
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
-struct ZipMod {
+pub struct ZipMod {
     path: PathBuf,
+    created_at: SystemTime,
     manifests: Vec<ZipModMod>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-struct ZipModMod {
+pub struct ZipModMod {
     // relative path
     manifest_path: PathBuf,
     manifest: ModManifest,
 }
-
+// TODO: cache this
 fn has_manifest(entry: &PathBuf) -> Result<ZipMod> {
     let file = File::open(entry)?;
+    let created_at = file.metadata()?.created()?;
     let mut archive = ZipArchive::new(file)?;
 
     let mut mods: Vec<ZipModMod> = Vec::new();
@@ -46,31 +51,51 @@ fn has_manifest(entry: &PathBuf) -> Result<ZipMod> {
         }
     }
 
-    if mods.len() == 0 {
+    if mods.is_empty() {
         return Err(color_eyre::eyre::eyre!("No manifest found"));
     }
 
     Ok(ZipMod {
+        created_at,
         path: entry.clone(),
         manifests: mods,
     })
 }
 
-fn find_zips_with_manifests(base_dir: &Path) -> Vec<ZipMod> {
+pub fn find_zips_with_manifests(base_dir: &Path) -> Vec<ZipMod> {
     WalkDir::new(base_dir)
         .max_depth(2)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension() == Some(std::ffi::OsStr::new("zip")))
-        .filter_map(|e| has_manifest(&e.into_path()).ok())
+        .filter_map(|e: DirEntry| has_manifest(&e.into_path()).ok())
         .collect()
 }
-#[test]
-fn main() {
-    let base_dir = dirs::download_dir().expect("Failed to find the downloads directory");
-    println!("{:?}", base_dir);
-    let zips_with_manifests = find_zips_with_manifests(&base_dir);
-    for path in zips_with_manifests {
-        println!("{:?}", path);
+
+impl From<&ZipMod> for ModsZip {
+    fn from(value: &ZipMod) -> Self {
+        let desc = format_description!("[year repr:last_two]-[month]-[day] [hour]:[minute]");
+
+        let mods: Vec<InstalledMod> = value
+            .manifests
+            .clone()
+            .into_iter()
+            .map(|x| InstalledMod {
+                active: false,
+                manifest: x.manifest,
+                modified: value.created_at,
+                path: x.manifest_path,
+            })
+            .collect();
+
+        ModsZip {
+            mods: mods_to_modelrc(&mods),
+            created: OffsetDateTime::from(value.created_at)
+                .format(desc)
+                .expect("Failed formatting date")
+                .into(),
+            name: value.path.file_name().unwrap().to_string_lossy().to_string().into(),
+            path: value.path.to_string_lossy().to_string().into(),
+        }
     }
 }
