@@ -78,7 +78,7 @@ export component AppWindow inherits Window {
                         accessible-label: "Change page";
                         accessible-role: combobox;
                         forward-focus: focus-stealer;
-                        current-index: 2;
+                        current-index: 0;
                         height: combo.preferred-height;
                         vertical-stretch: 0;
                         selected(v) => {
@@ -104,6 +104,7 @@ export component AppWindow inherits Window {
                         height: self.preferred-height;
                         model: profiles;
                         current-value: profile;
+                        current-index: Magic.idx(profiles, profile);
                     }
                 }
             }

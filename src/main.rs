@@ -584,9 +584,17 @@ async fn main() -> Result<()> {
     });
 
     ui.global::<Magic>().on_join(move |s, joiner| {
+        debug!("To join called");
         let list = s.iter().map(|x| x.to_string()).collect::<Vec<_>>();
 
         list.join(joiner.as_ref()).into()
+    });
+
+    ui.global::<Magic>().on_idx(move |list, item| {
+        debug!("To idx called");
+        (list.iter().position(|x| x == item).unwrap() as u32)
+            .try_into()
+            .unwrap()
     });
 
     let handle_weak = ui.as_weak();
