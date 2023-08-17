@@ -3,7 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
-    fs::{create_dir_all, read_dir, read_to_string, remove_file, rename, write, DirEntry, File},
+    fs::{create_dir_all, read_dir, read_to_string, rename, write, DirEntry, File},
     future::Future,
     io,
     path::PathBuf,
