@@ -1,0 +1,28 @@
+import { LineEdit, Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    preferred-width: 700px;
+    preferred-height: 200px;
+    title: "Stardew Valley Mod Manager (setup)";
+    callback save <=> btn.clicked;
+    in-out property <string> path;
+    VerticalBox {
+        Text {
+            text: "Stardew Valley Mod Manager could not determine the stardew valley config location please insert it here!";
+            wrap: word-wrap;
+        }
+        LineEdit {
+            text: "";
+            placeholder-text: "Full path";
+            edited(text) => {
+                path = text;
+            }
+            accepted(text) => {
+                save();
+            }
+        }
+        btn := Button {
+            text:"save";
+        }
+    }
+}

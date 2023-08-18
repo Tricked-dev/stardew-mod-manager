@@ -10,6 +10,7 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
+use ::config::{Config, Environment};
 use color_eyre::eyre::Result;
 use find_mods_from_downloads::{find_zips_with_manifests, ZipMod};
 use futures::TryFutureExt;
@@ -21,13 +22,14 @@ use tokio::{sync::OnceCell, task::JoinHandle};
 use walkdir::WalkDir;
 use zip::ZipArchive;
 
+use crate::{config::SVMMConfig, find_game::get_game_dir};
+
 slint::include_modules!();
 
+mod config;
 mod find_game;
 mod find_mods_from_downloads;
 mod smapiapi;
-
-// pub use crate::ModsZip;
 
 const SVMM: &str = "SVMM";
 
@@ -42,12 +44,34 @@ struct GameData {
 
 static GAME_DATA: OnceCell<GameData> = OnceCell::const_new();
 
+fn get_svmm_config() -> PathBuf {
+    dirs::config_local_dir().unwrap().join("svmm.ron")
+}
+
 async fn get_game_data<'a>() -> Result<&'a GameData> {
     if GAME_DATA.initialized() {
         return Ok(GAME_DATA.get().unwrap());
     }
 
-    let game_dir = find_game::get_game_dir("Stardew Valley")?;
+    let config: SVMMConfig = Config::builder()
+        .add_source(
+            Environment::with_prefix("SVMM")
+                .try_parsing(true)
+                .separator("_")
+                .list_separator(" "),
+        )
+        .add_source(::config::File::with_name(get_svmm_config().to_string_lossy().to_string().as_str()).required(false))
+        .set_default(
+            "installation_path",
+            get_game_dir("Stardew Valley")
+                .map(|v| v.to_string_lossy().to_string())
+                .ok(),
+        )?
+        .build()?
+        .try_deserialize()
+        .map_err(|_| color_eyre::eyre::eyre!("Failed to deserialize SVMM config"))?;
+
+    let game_dir = config.installation_path.clone();
 
     info!("using game dir: {game_dir:?}");
 
@@ -554,7 +578,34 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     // inits the game data - do it here so errors stay pretty :D
-    let _ = get_game_data().await?;
+    let _ = match get_game_data().await {
+        Ok(data) => data,
+        Err(err) => {
+            if err.to_string().contains("SVMM") {
+                let setup = svmm_setup::AppWindow::new()?;
+                let setup_weak = setup.as_weak();
+                setup.on_save(move || {
+                    let setup = setup_weak.unwrap();
+                    let strin = setup.get_path();
+                    let file = get_svmm_config();
+                    write(
+                        file,
+                        ron::to_string(&SVMMConfig {
+                            installation_path: strin.to_string().into(),
+                        })
+                        .unwrap(),
+                    )
+                    .unwrap();
+                    slint::quit_event_loop().unwrap();
+                });
+
+                setup.run()?;
+                get_game_data().await?
+            } else {
+                Err(err)?
+            }
+        }
+    };
 
     let ui = AppWindow::new()?;
 

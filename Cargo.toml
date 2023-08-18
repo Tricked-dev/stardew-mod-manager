@@ -9,6 +9,7 @@ build = "build.rs"
 
 [dependencies]
 color-eyre = "0.6.2"
+config = "0.13.3"
 dirs = "5.0.1"
 env_logger = "0.10.0"
 futures = { version = "0.3.28", features = ["futures-executor"] }
@@ -19,20 +20,26 @@ opener = "0.6.1"
 reqwest = { version = "0.11.18", features = ["json", "tokio-rustls"] }
 ron = "0.8.0"
 serde = { version = "1.0.183", features = ["derive"] }
+slint.workspace = true
 serde_json = "1.0.104"
-slint = { version = "1.0", features = ["renderer-winit-software", "compat-1-0",
-    "backend-winit", "software-renderer-systemfonts", "backend-winit-wayland",
-    "backend-winit-x11",  "renderer-winit-skia", "renderer-winit-skia-opengl"], default-features = false }
 time = { version = "0.3.25", features = ["macros", "formatting", "parsing", "local-offset"] }
 tokio = { version = "1.29.1", features = ["full"] }
 walkdir = "2.3.3"
 zip = "0.6.6"
+svmm-setup ={ path="./setup" }
 
 [build-dependencies]
-slint-build = "1.0"
+slint-build.workspace = true
 
 [profile.release]
 opt-level = "z"
 lto = "thin"
 codegen-units = 1
 # strip = true
+
+[workspace]
+resolver = "2"
+members = ["setup", "."]
+[workspace.dependencies]
+slint = { version = "1.0", features = ["renderer-winit-software", "compat-1-0", "backend-winit", "software-renderer-systemfonts", "backend-winit-wayland", "backend-winit-x11", "renderer-winit-skia", "renderer-winit-skia-opengl"], default-features = false }
+slint-build = "1.0"
